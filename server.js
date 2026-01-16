@@ -72,3 +72,28 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Webhook running on port", PORT);
 });
+app.post("/simulate", async (req, res) => {
+  const from = req.body.from || "628123456789";
+  const text = req.body.text || "";
+
+  console.log("SIMULATE FROM:", from);
+  console.log("SIMULATE TEXT:", text);
+
+  let reply =
+    "Halo 👋 Bengkel Lavo siap membantu.\n\n" +
+    "Balas angka:\n" +
+    "1️⃣ Servis kendaraan\n" +
+    "2️⃣ Tanya harga\n" +
+    "3️⃣ Jam operasional";
+
+  if (text.trim() === "1") reply = "Silakan sebutkan jenis kendaraan Anda.";
+  else if (text.trim() === "2") reply = "Mohon jelaskan servis yang dibutuhkan.";
+  else if (text.trim() === "3") reply = "Kami buka setiap hari 08.00–17.00.";
+
+  return res.json({
+    from,
+    user_message: text,
+    bot_reply: reply,
+  });
+});
+
