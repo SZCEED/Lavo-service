@@ -1,69 +1,50 @@
 import express from "express";
+import fetch from "node-fetch";
 
 const app = express();
 app.use(express.json());
 
 const VERIFY_TOKEN = "tes123";
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = "861027807104753";
 
-// ================= VERIFY WEBHOOK =================
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("WEBHOOK VERIFIED");
     return res.status(200).send(challenge);
   }
   return res.sendStatus(403);
 });
 
-// ================= RULE ENGINE =================
-function generateReply(message) {
-  const text = message.toLowerCase();
-
-  if (text.includes("harga")) {
-    return "Harga servis tergantung jenis kendaraan. Silakan sebutkan tipe kendaraan Anda.";
-  }
-
-  if (text.includes("alamat")) {
-    return "Bengkel kami berlokasi di Waru, Sidoarjo.";
-  }
-
-  if (text.includes("jam")) {
-    return "Jam operasional kami: Senin–Sabtu, pukul 08.00–17.00.";
-  }
-
-  if (text.includes("booking")) {
-    return "Untuk booking servis, silakan sebutkan nama dan jenis kendaraan Anda.";
-  }
-
-  return "Terima kasih telah menghubungi kami. Pesan Anda akan segera kami proses.";
-}
-
-// ================= RECEIVE WEBHOOK =================
 app.post("/webhook", async (req, res) => {
-  console.log("INCOMING MESSAGE:", JSON.stringify(req.body, null, 2));
-
   try {
     const entry = req.body.entry?.[0];
     const change = entry?.changes?.[0];
     const message = change?.value?.messages?.[0];
 
-    if (!message || !message.text) {
-      return res.sendStatus(200);
-    }
+    if (!message) return res.sendStatus(200);
 
     const from = message.from;
-    const text = message.text.body;
-    const reply = generateReply(text);
+    const text = message.text?.body || "";
 
-    // ================= SEND MESSAGE (AKTIFKAN NANTI) =================
-    /*
-    await fetch(`https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+    let reply =
+      "Halo 👋 Bengkel Lavo siap membantu.\n\n" +
+      "Balas angka:\n" +
+      "1️⃣ Servis\n" +
+      "2️⃣ Harga\n" +
+      "3️⃣ Jam buka";
+
+    if (text === "1") reply = "Silakan sebutkan kendaraan Anda.";
+    if (text === "2") reply = "Silakan jelaskan servis yang dibutuhkan.";
+    if (text === "3") reply = "Kami buka 08.00–17.00 setiap hari.";
+
+    await fetch(`https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -72,24 +53,15 @@ app.post("/webhook", async (req, res) => {
         text: { body: reply },
       }),
     });
-    */
 
-    console.log("AUTO REPLY:", reply);
     res.sendStatus(200);
-  } catch (error) {
-    console.error("ERROR:", error);
+  } catch (err) {
+    console.error(err);
     res.sendStatus(500);
   }
 });
 
-// ================= SIMULATION =================
-app.post("/simulate", (req, res) => {
-  const { message } = req.body;
-  const reply = generateReply(message);
-  res.json({ reply });
-});
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log("Webhook running on port", PORT);
 });
